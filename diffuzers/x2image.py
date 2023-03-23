@@ -75,61 +75,6 @@ class X2Image:
             custom_pipeline=self.custom_pipeline,
             use_auth_token=utils.use_auth_token(),
         )
-        components = self.text2img_pipeline.components
-        self.pix2pix_pipeline = None
-        if isinstance(self.text2img_pipeline, StableDiffusionPipeline):
-            self.img2img_pipeline = StableDiffusionImg2ImgPipeline(**components)
-            self.pix2pix_pipeline = StableDiffusionInstructPix2PixPipeline(**components)
-        elif isinstance(self.text2img_pipeline, AltDiffusionPipeline):
-            self.img2img_pipeline = AltDiffusionImg2ImgPipeline(**components)
-        else:
-            self.img2img_pipeline = None
-            logger.error("Model type not supported, img2img pipeline not created")
-
-        self.text2img_pipeline.to(self.device)
-        self.text2img_pipeline.safety_checker = utils.no_safety_checker
-        self.img2img_pipeline.to(self.device)
-        self.img2img_pipeline.safety_checker = utils.no_safety_checker
-        if self.pix2pix_pipeline is not None:
-            self.pix2pix_pipeline.to(self.device)
-            self.pix2pix_pipeline.safety_checker = utils.no_safety_checker
-
-        self.compatible_schedulers = {
-            scheduler.__name__: scheduler for scheduler in self.text2img_pipeline.scheduler.compatibles
-        }
-
-        if len(self.embeddings_url) > 0 and len(self.token_identifier) > 0:
-            # download the embeddings
-            self.embeddings_path = utils.download_file(self.embeddings_url)
-            load_embed(
-                learned_embeds_path=self.embeddings_path,
-                text_encoder=self.pipeline.text_encoder,
-                tokenizer=self.pipeline.tokenizer,
-                token=self.token_identifier,
-            )
-
-        if self.device == "mps":
-            self.text2img_pipeline.enable_attention_slicing()
-            prompt = "a photo of an astronaut riding a horse on mars"
-            _ = self.text2img_pipeline(prompt, num_inference_steps=2)
-
-            self.img2img_pipeline.enable_attention_slicing()
-            url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg"
-            response = requests.get(url)
-            init_image = Image.open(BytesIO(response.content)).convert("RGB")
-            init_image.thumbnail((768, 768))
-            prompt = "A fantasy landscape, trending on artstation"
-            _ = self.img2img_pipeline(
-                prompt=prompt,
-                image=init_image,
-                strength=0.75,
-                guidance_scale=7.5,
-                num_inference_steps=2,
-            )
-            if self.pix2pix_pipeline is not None:
-                self.pix2pix_pipeline.enable_attention_slicing()
-                prompt = "turn him into a cyborg"
-                _ = self.pix2pix_pipeline(prompt, image=init_image, num_inference_steps=2)
 
     def _set_scheduler(self, pipeline_name, scheduler_name):
         if pipeline_name == "text2img":
